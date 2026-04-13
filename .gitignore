@@ -1,0 +1,4 @@
+# Removendo pastas de oututput e arquivos de resultado, além de incluir um arquivo de teste "Olá, Mundo!" para verificar se o ambiente de desenvolvimento está configurado corretamente.
+output/
+src/output/
+src/olaMundo.cpp
