@@ -3,13 +3,19 @@
 #include <random>
 #include <string>
 #include <vector>
-#include <direct.h>
+#include <cerrno>
+#include <sys/stat.h>
 
 #include "constants.h"
 
 using namespace std;
 
 using Matrix = vector<vector<int>>;
+
+bool criarDiretorioSaida(const char *dir) {
+	int status = mkdir(dir, 0777);
+	return status == 0 || errno == EEXIST;
+}
 
 bool validarNumeroInteiro(const string &text, int &value) {
 	try {
@@ -109,7 +115,15 @@ int main(int argc, char *argv[]) {
 	Matrix matrix1 = gerarMatrizAleatoria(n1, m1);
 	Matrix matrix2 = gerarMatrizAleatoria(n2, m2);
 
-	_mkdir(AppPaths::dirSaidaMatrizes);
+	if (!criarDiretorioSaida(AppPaths::dirSaida)) {
+		cerr << "Erro: nao foi possivel criar o diretorio de saida.\n";
+		return 1;
+	}
+
+	if (!criarDiretorioSaida(AppPaths::dirSaidaMatrizes)) {
+		cerr << "Erro: nao foi possivel criar o diretorio de saida.\n";
+		return 1;
+	}
 
 	string caminhoMatrizM1 = AppPaths::dirM1 + to_string(n1) + "x" + to_string(m1) + ".txt";
 	string caminhoMatrizM2 = AppPaths::dirM2 + to_string(n2) + "x" + to_string(m2) + ".txt";

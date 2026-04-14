@@ -1,13 +1,16 @@
 
 #include <chrono>
 #include <cerrno>
+#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <pthread.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <string>
+#include <unistd.h>
 #include <vector>
-#include <direct.h>
 
 #include "constants.h"
 
@@ -17,22 +20,12 @@ using Matrix = vector<vector<int>>;
 
 struct WorkerResult {
 	int workerIndex = 0;
-	double elapsedS = 0.0;
-	bool success = true;
+	pid_t pid = -1;
 	string outputPath;
 };
 
-struct WorkerTask {
-	const Matrix *m1 = nullptr;
-	const Matrix *m2 = nullptr;
-	int inicio = 0;
-	int fim = 0;
-	string caminhoSaida;
-	WorkerResult *result = nullptr;
-};
-
 bool criarDiretorioSaida(const char *dir) {
-	int status = _mkdir(dir);
+	int status = mkdir(dir, 0777);
 	return status == 0 || errno == EEXIST;
 }
 
@@ -106,36 +99,54 @@ bool salvarResultadoParcial(const Matrix &resultadoParcial, double tempoS, const
 	return true;
 }
 
-void *executarWorker(void *param) {
-	WorkerTask *task = static_cast<WorkerTask *>(param);
-	const Matrix &m1 = *(task->m1);
-	const Matrix &m2 = *(task->m2);
-	WorkerResult &result = *(task->result);
+bool lerTempoResultadoParcial(const string &caminhoArquivo, double &tempoS) {
+	ifstream arquivo(caminhoArquivo);
+	if (!arquivo.is_open()) {
+		return false;
+	}
 
+	int linhas = 0;
+	int colunas = 0;
+	if (!(arquivo >> linhas >> colunas) || linhas < 0 || colunas < 0) {
+		return false;
+	}
+
+	string rotulo;
+	int valor = 0;
+	for (int i = 0; i < linhas * colunas; ++i) {
+		if (!(arquivo >> rotulo >> valor)) {
+			return false;
+		}
+	}
+
+	if (!(arquivo >> tempoS)) {
+		return false;
+	}
+
+	return true;
+}
+
+bool executarWorkerProcesso(const Matrix &m1, const Matrix &m2, int inicio, int fim, const string &caminhoSaida) {
 	int colunas = static_cast<int>(m2[0].size());
-	Matrix resultadoParcial(task->fim - task->inicio, vector<int>(colunas, 0));
+	Matrix resultadoParcial(fim - inicio, vector<int>(colunas, 0));
 
 	auto start = chrono::high_resolution_clock::now();
-	for (int linha = task->inicio; linha < task->fim; ++linha) {
+	for (int linha = inicio; linha < fim; ++linha) {
 		for (int col = 0; col < colunas; ++col) {
 			int sum = 0;
 			for (int k = 0; k < static_cast<int>(m1[0].size()); ++k) {
 				sum += m1[linha][k] * m2[k][col];
 			}
-			resultadoParcial[linha - task->inicio][col] = sum;
+			resultadoParcial[linha - inicio][col] = sum;
 		}
 	}
 	auto end = chrono::high_resolution_clock::now();
+	double tempoS = chrono::duration<double>(end - start).count();
 
-	result.elapsedS = chrono::duration<double>(end - start).count();
-	if (!salvarResultadoParcial(resultadoParcial, result.elapsedS, task->caminhoSaida)) {
-		result.success = false;
-	}
-
-	return nullptr;
+	return salvarResultadoParcial(resultadoParcial, tempoS, caminhoSaida);
 }
 
-int executarComPthreads(const string &caminhoM1, const string &caminhoM2, int totalWorkers) {
+int executarComFork(const string &caminhoM1, const string &caminhoM2, int totalWorkers) {
 	Matrix m1;
 	Matrix m2;
 
@@ -155,6 +166,11 @@ int executarComPthreads(const string &caminhoM1, const string &caminhoM2, int to
 		return 1;
 	}
 
+	if (!criarDiretorioSaida(AppPaths::dirSaida)) {
+		cerr << "Erro: nao foi possivel criar o diretorio de saida.\n";
+		return 1;
+	}
+
 	if (!criarDiretorioSaida(AppPaths::dirSaidaMatrizes)) {
 		cerr << "Erro: nao foi possivel criar o diretorio de saida.\n";
 		return 1;
@@ -162,9 +178,6 @@ int executarComPthreads(const string &caminhoM1, const string &caminhoM2, int to
 
 	int blocoBase = n1 / totalWorkers;
 	int resto = n1 % totalWorkers;
-	vector<pthread_t> threads(totalWorkers);
-	vector<bool> threadCriada(totalWorkers, false);
-	vector<WorkerTask> tasks(totalWorkers);
 	vector<WorkerResult> resultados(totalWorkers);
 	int inicioAtual = 0;
 
@@ -178,44 +191,48 @@ int executarComPthreads(const string &caminhoM1, const string &caminhoM2, int to
 		resultados[i].workerIndex = i;
 		resultados[i].outputPath = caminhoSaida;
 
-		tasks[i].m1 = &m1;
-		tasks[i].m2 = &m2;
-		tasks[i].inicio = inicio;
-		tasks[i].fim = fim;
-		tasks[i].caminhoSaida = caminhoSaida;
-		tasks[i].result = &resultados[i];
-
-		// endereço da thread / função de execução / parâmetro para a thread (indice do worker)
-		int status = pthread_create(&threads[i], nullptr, executarWorker, &tasks[i]);
-		if (status != 0) {
-			cerr << "Erro: falha ao criar worker " << (i + 1) << ".\n";
+		pid_t pid = fork();
+		if (pid < 0) {
+			cerr << "Erro: falha ao criar processo " << (i + 1) << ".\n";
 			for (int j = 0; j < i; ++j) {
-				if (threadCriada[j]) {
-					// especie de await - dizemos qual thread queremos esperar e o que fazer quando ela terminar (nullptr = não precisamos de retorno)
-					pthread_join(threads[j], nullptr);
+				if (resultados[j].pid > 0) {
+					wait(nullptr);
 				}
 			}
 			return 1;
 		}
 
-		threadCriada[i] = true;
+		if (pid == 0) {
+			bool sucesso = executarWorkerProcesso(m1, m2, inicio, fim, caminhoSaida);
+			exit(sucesso ? 0 : 2);
+		}
+
+		resultados[i].pid = pid;
 	}
 
 	for (int i = 0; i < totalWorkers; ++i) {
-		if (threadCriada[i]) {
-			pthread_join(threads[i], nullptr);
+		int status = 0;
+		if (wait(&status) < 0) {
+			cerr << "Erro: falha ao aguardar processo filho.\n";
+			return 1;
+		}
+
+		if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+			cerr << "Erro: um processo filho finalizou com falha.\n";
+			return 1;
 		}
 	}
 
 	double tempoTotalS = 0.0;
-	for (const WorkerResult &result : resultados) {
-		if (!result.success) {
-			cerr << "Erro: nao foi possivel salvar um arquivo parcial de resultado.\n";
+	for (const WorkerResult &resultado : resultados) {
+		double tempoWorkerS = 0.0;
+		if (!lerTempoResultadoParcial(resultado.outputPath, tempoWorkerS)) {
+			cerr << "Erro: nao foi possivel ler arquivo parcial de resultado.\n";
 			return 1;
 		}
 
-		if (result.elapsedS > tempoTotalS) {
-			tempoTotalS = result.elapsedS;
+		if (tempoWorkerS > tempoTotalS) {
+			tempoTotalS = tempoWorkerS;
 		}
 	}
 
@@ -236,5 +253,5 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	return executarComPthreads(argv[1], argv[2], totalProcessos);
+	return executarComFork(argv[1], argv[2], totalProcessos);
 }

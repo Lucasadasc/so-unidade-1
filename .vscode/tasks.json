@@ -2,6 +2,22 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Build auxiliar",
+      "type": "shell",
+      "command": "g++",
+      "args": [
+        "-Wall",
+        "-Wextra",
+        "-g3",
+        "${workspaceFolder}/src/auxiliar.cpp",
+        "-o",
+        "${workspaceFolder}/output/auxiliar"
+      ],
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
       "label": "Build paraleloThreads",
       "type": "shell",
       "command": "g++",
@@ -11,7 +27,7 @@
         "-g3",
         "${workspaceFolder}/src/paraleloThreads.cpp",
         "-o",
-        "${workspaceFolder}/src/output/paraleloThreads.exe",
+        "${workspaceFolder}/output/paraleloThreads",
         "-pthread"
       ],
       "group": {
@@ -32,12 +48,27 @@
         "-g3",
         "${workspaceFolder}/src/paraleloProcessos.cpp",
         "-o",
-        "${workspaceFolder}/src/output/paraleloProcessos.exe",
+        "${workspaceFolder}/output/paraleloProcessos",
         "-pthread"
       ],
       "problemMatcher": [
         "$gcc"
       ]
+    },
+    {
+      "label": "Run paraleloProcessos",
+      "type": "shell",
+      "command": "${workspaceFolder}/output/paraleloProcessos",
+      "args": [
+        "${workspaceFolder}/output/matrizes/matriz_m1.txt",
+        "${workspaceFolder}/output/matrizes/matriz_m2.txt",
+        "2"
+      ],
+      "dependsOn": [
+        "Build paraleloProcessos"
+      ],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
     }
   ]
 }

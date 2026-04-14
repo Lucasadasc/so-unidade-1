@@ -4,13 +4,20 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <direct.h>
+
+#include <cerrno>
+#include <sys/stat.h>
 
 #include "constants.h"
 
 using namespace std;
 
 using Matrix = vector<vector<int>>;
+
+bool criarDiretorioSaida(const char *dir) {
+	int status = mkdir(dir, 0777);
+	return status == 0 || errno == EEXIST;
+}
 
 bool carregarArquivoMatriz(const string &caminhoArquivo, Matrix &matriz) {
 	ifstream arquivoMatriz(caminhoArquivo);
@@ -101,7 +108,15 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	_mkdir(AppPaths::dirSaidaMatrizes);
+	if (!criarDiretorioSaida(AppPaths::dirSaida)) {
+		cerr << "Erro: nao foi possivel criar o diretorio de saida.\n";
+		return 1;
+	}
+
+	if (!criarDiretorioSaida(AppPaths::dirSaidaMatrizes)) {
+		cerr << "Erro: nao foi possivel criar o diretorio de saida.\n";
+		return 1;
+	}
 
 	auto start = chrono::high_resolution_clock::now();
 	Matrix result = multiplicarSequencialmente(m1, m2);

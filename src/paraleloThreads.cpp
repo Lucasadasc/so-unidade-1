@@ -7,7 +7,7 @@
 #include <pthread.h>
 #include <string>
 #include <vector>
-#include <direct.h>
+#include <sys/stat.h>
 
 #include "constants.h"
 
@@ -32,7 +32,7 @@ struct tarefaThread {
 };
 
 bool criarDiretorioSaida(const char *dir) {
-	int status = _mkdir(dir);
+	int status = mkdir(dir, 0777);
 	return status == 0 || errno == EEXIST;
 }
 
@@ -170,6 +170,11 @@ int main(int argc, char *argv[]) {
 	int linhasResultado = static_cast<int>(m1.size());
 	if (totalThreads > linhasResultado) {
 		cerr << "Erro: T nao pode ser maior que o numero de linhas de M1 (N1).\n";
+		return 1;
+	}
+
+	if (!criarDiretorioSaida(AppPaths::dirSaida)) {
+		cerr << "Erro: nao foi possivel criar o diretorio de saida.\n";
 		return 1;
 	}
 
