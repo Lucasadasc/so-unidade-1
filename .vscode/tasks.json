@@ -1,0 +1,43 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build paraleloThreads",
+      "type": "shell",
+      "command": "g++",
+      "args": [
+        "-Wall",
+        "-Wextra",
+        "-g3",
+        "${workspaceFolder}/src/paraleloThreads.cpp",
+        "-o",
+        "${workspaceFolder}/src/output/paraleloThreads.exe",
+        "-pthread"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [
+        "$gcc"
+      ]
+    },
+    {
+      "label": "Build paraleloProcessos",
+      "type": "shell",
+      "command": "g++",
+      "args": [
+        "-Wall",
+        "-Wextra",
+        "-g3",
+        "${workspaceFolder}/src/paraleloProcessos.cpp",
+        "-o",
+        "${workspaceFolder}/src/output/paraleloProcessos.exe",
+        "-pthread"
+      ],
+      "problemMatcher": [
+        "$gcc"
+      ]
+    }
+  ]
+}

@@ -5,14 +5,16 @@
 #include <vector>
 #include <direct.h>
 
-#include "app_constants.h"
+#include "constants.h"
 
-using Matrix = std::vector<std::vector<int>>;
+using namespace std;
 
-bool validarNumeroInteiro(const std::string &text, int &value) {
+using Matrix = vector<vector<int>>;
+
+bool validarNumeroInteiro(const string &text, int &value) {
 	try {
-		std::size_t endPos = 0;
-		int number = std::stoi(text, &endPos);
+		size_t endPos = 0;
+		int number = stoi(text, &endPos);
 
 		if (endPos != text.size()) {
 			return false;
@@ -26,14 +28,14 @@ bool validarNumeroInteiro(const std::string &text, int &value) {
 }
 
 Matrix gerarMatrizAleatoria(int rows, int cols) {
-	Matrix matrix(rows, std::vector<int>(cols, 0));
+	Matrix matrix(rows, vector<int>(cols, 0));
 
-    // o std::random_device é usado para obter uma semente aleatoria do sistema
-	std::random_device rd;
+    // o random_device é usado para obter uma semente aleatoria do sistema
+	random_device rd;
     // o mt19937 é um gerador de numeros pseudo-aleatorios baseado no algoritmo Mersenne Twister
-	std::mt19937 rng(rd());
+	mt19937 rng(rd());
     // o uniform_int_distribution é usado para gerar numeros inteiros aleatorios entre 0 e 9
-	std::uniform_int_distribution<int> dist(0, 9);
+	uniform_int_distribution<int> dist(0, 9);
 
 	for (int row = 0; row < rows; ++row) {
 		for (int col = 0; col < cols; ++col) {
@@ -44,9 +46,9 @@ Matrix gerarMatrizAleatoria(int rows, int cols) {
 	return matrix;
 }
 
-bool criarArquivoMatriz(const std::string &filePath, const Matrix &matrix) {
-    // o std::ofstream é usado para criar um fluxo de saida para escrever em arquivos
-	std::ofstream novoArquivo(filePath);
+bool criarArquivoMatriz(const string &filePath, const Matrix &matrix) {
+    // o ofstream é usado para criar um fluxo de saida para escrever em arquivos
+	ofstream novoArquivo(filePath);
 
 	if (!novoArquivo.is_open()) {
 		return false;
@@ -74,8 +76,8 @@ bool criarArquivoMatriz(const std::string &filePath, const Matrix &matrix) {
 int main(int argc, char *argv[]) {
 	if (argc != 5) {
         // cerr é usado para imprimir mensagens de erro no console
-		std::cerr << "Uso: " << argv[0] << " n1 m1 n2 m2\n";
-		std::cerr << "Exemplo: " << argv[0] << " 3 2 2 4\n";
+		cerr << "Uso: " << argv[0] << " n1 m1 n2 m2\n";
+		cerr << "Exemplo: " << argv[0] << " 3 2 2 4\n";
 		return 1;
 	}
 
@@ -90,17 +92,17 @@ int main(int argc, char *argv[]) {
 	bool okM2 = validarNumeroInteiro(argv[4], m2);
 
 	if (!okN1 || !okM1 || !okN2 || !okM2) {
-		std::cerr << "Erro: todos os argumentos devem ser inteiros validos.\n";
+		cerr << "Erro: todos os argumentos devem ser inteiros validos.\n";
 		return 1;
 	}
 
 	if (n1 <= 0 || m1 <= 0 || n2 <= 0 || m2 <= 0) {
-		std::cerr << "Erro: as dimensoes devem ser maiores que zero.\n";
+		cerr << "Erro: as dimensoes devem ser maiores que zero.\n";
 		return 1;
 	}
 
 	if (m1 != n2) {
-		std::cerr << "Erro: matrizes incompativeis para multiplicacao (m1 deve ser igual a n2).\n";
+		cerr << "Erro: matrizes incompativeis para multiplicacao (m1 deve ser igual a n2).\n";
 		return 1;
 	}
 
@@ -109,20 +111,20 @@ int main(int argc, char *argv[]) {
 
 	_mkdir(AppPaths::dirSaidaMatrizes);
 
-	std::string caminhoMatrizM1 = AppPaths::dirM1;
-	std::string caminhoMatrizM2 = AppPaths::dirM2;
+	string caminhoMatrizM1 = AppPaths::dirM1 + to_string(n1) + "x" + to_string(m1) + ".txt";
+	string caminhoMatrizM2 = AppPaths::dirM2 + to_string(n2) + "x" + to_string(m2) + ".txt";
 
 	bool savedM1 = criarArquivoMatriz(caminhoMatrizM1, matrix1);
 	bool savedM2 = criarArquivoMatriz(caminhoMatrizM2, matrix2);
 
 	if (!savedM1 || !savedM2) {
-		std::cerr << "Erro: nao foi possivel salvar uma ou ambas as matrizes nos arquivos de saida.\n";
+		cerr << "Erro: nao foi possivel salvar uma ou ambas as matrizes nos arquivos de saida.\n";
 		return 1;
 	}
 
-	std::cout << "Arquivos gerados com sucesso:\n";
-	std::cout << "- " << caminhoMatrizM1 << " (" << n1 << "x" << m1 << ")\n";
-	std::cout << "- " << caminhoMatrizM2 << " (" << n2 << "x" << m2 << ")\n";
+	cout << "Arquivos gerados com sucesso:\n";
+	cout << "- " << caminhoMatrizM1 << " (" << n1 << "x" << m1 << ")\n";
+	cout << "- " << caminhoMatrizM2 << " (" << n2 << "x" << m2 << ")\n";
 
 	return 0;
 }

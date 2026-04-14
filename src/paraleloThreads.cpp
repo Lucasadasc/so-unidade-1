@@ -1,36 +1,45 @@
 
 #include <chrono>
+#include <cerrno>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <pthread.h>
 #include <string>
 #include <vector>
 #include <direct.h>
-#include <windows.h>
 
 #include "constants.h"
 
-using Matrix = std::vector<std::vector<int>>;
+using namespace std;
 
-struct ThreadResult {
-	int threadIndex = 0;
-	int startRow = 0;
-	int endRow = 0;
-	long long elapsedMs = 0;
+using Matrix = vector<vector<int>>;
+
+struct resultadoThread {
+	int threadId = 0;
+	int linhaInicio = 0;
+	int linhaFim = 0;
+	double tempoS = 0.0;
 };
 
-struct ThreadTask {
+struct tarefaThread {
 	const Matrix *m1 = nullptr;
 	const Matrix *m2 = nullptr;
 	Matrix *resultado = nullptr;
-	ThreadResult *threadInfo = nullptr;
-	int startRow = 0;
-	int endRow = 0;
+	resultadoThread *threadInfo = nullptr;
+	int linhaInicio = 0;
+	int linhaFim = 0;
 };
 
-bool validarNumeroInteiro(const std::string &text, int &value) {
+bool criarDiretorioSaida(const char *dir) {
+	int status = _mkdir(dir);
+	return status == 0 || errno == EEXIST;
+}
+
+bool validarNumeroInteiro(const string &text, int &value) {
 	try {
-		std::size_t endPos = 0;
-		int number = std::stoi(text, &endPos);
+		size_t endPos = 0;
+		int number = stoi(text, &endPos);
 		if (endPos != text.size()) {
 			return false;
 		}
@@ -41,8 +50,8 @@ bool validarNumeroInteiro(const std::string &text, int &value) {
 	}
 }
 
-bool carregarArquivoMatriz(const std::string &caminhoArquivo, Matrix &matriz) {
-	std::ifstream arquivoMatriz(caminhoArquivo);
+bool carregarArquivoMatriz(const string &caminhoArquivo, Matrix &matriz) {
+	ifstream arquivoMatriz(caminhoArquivo);
 	if (!arquivoMatriz.is_open()) {
 		return false;
 	}
@@ -53,7 +62,7 @@ bool carregarArquivoMatriz(const std::string &caminhoArquivo, Matrix &matriz) {
 		return false;
 	}
 
-	matriz.assign(rows, std::vector<int>(cols, 0));
+	matriz.assign(rows, vector<int>(cols, 0));
 	for (int row = 0; row < rows; ++row) {
 		for (int col = 0; col < cols; ++col) {
 			if (!(arquivoMatriz >> matriz[row][col])) {
@@ -65,22 +74,21 @@ bool carregarArquivoMatriz(const std::string &caminhoArquivo, Matrix &matriz) {
 	return true;
 }
 
-DWORD WINAPI multiplicarBlocoLinhas(LPVOID param) {
-	ThreadTask *task = static_cast<ThreadTask *>(param);
+void executarBlocoLinhas(tarefaThread *task) {
 	const Matrix &m1 = *(task->m1);
 	const Matrix &m2 = *(task->m2);
 	Matrix &resultado = *(task->resultado);
-	ThreadResult &threadInfo = *(task->threadInfo);
-	int startRow = task->startRow;
-	int endRow = task->endRow;
+	resultadoThread &threadInfo = *(task->threadInfo);
+	int linhaInicio = task->linhaInicio;
+	int linhaFim = task->linhaFim;
 
-	auto inicio = std::chrono::high_resolution_clock::now();
+	auto inicio = chrono::high_resolution_clock::now();
 
 	int common = static_cast<int>(m1[0].size());
-	int cols = static_cast<int>(m2[0].size());
+	int colunas = static_cast<int>(m2[0].size());
 
-	for (int row = startRow; row < endRow; ++row) {
-		for (int col = 0; col < cols; ++col) {
+	for (int row = linhaInicio; row < linhaFim; ++row) {
+		for (int col = 0; col < colunas; ++col) {
 			int sum = 0;
 			for (int k = 0; k < common; ++k) {
 				sum += m1[row][k] * m2[k][col];
@@ -89,144 +97,153 @@ DWORD WINAPI multiplicarBlocoLinhas(LPVOID param) {
 		}
 	}
 
-	auto fim = std::chrono::high_resolution_clock::now();
-	threadInfo.elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(fim - inicio).count();
-	return 0;
+	auto fim = chrono::high_resolution_clock::now();
+	threadInfo.tempoS = chrono::duration<double>(fim - inicio).count();
 }
 
-std::string caminhoArquivoParte(int indiceThread) {
-	std::string base = AppPaths::dirResultadoParaleloThreads;
-	std::string sufixo = "_parte_" + std::to_string(indiceThread + 1) + ".txt";
+void *multiplicarBlocoLinhas(void *param) {
+	tarefaThread *task = static_cast<tarefaThread *>(param);
+	executarBlocoLinhas(task);
+	return nullptr;
+}
 
-	std::size_t pos = base.rfind(".txt");
-	if (pos != std::string::npos) {
+string caminhoArquivoParte(int indiceThread) {
+	string base = AppPaths::dirResultadoParaleloThreads;
+	string sufixo = "_parte_" + to_string(indiceThread + 1) + ".txt";
+
+	size_t pos = base.rfind(".txt");
+	if (pos != string::npos) {
 		return base.substr(0, pos) + sufixo;
 	}
 
 	return base + sufixo;
 }
 
-bool salvarResultadoParcial(const Matrix &resultado, const ThreadResult &info) {
-	std::string caminho = caminhoArquivoParte(info.threadIndex);
-	std::ofstream arquivo(caminho);
+bool salvarResultadoParcial(const Matrix &resultado, const resultadoThread &info) {
+	string caminho = caminhoArquivoParte(info.threadId);
+	ofstream arquivo(caminho);
 	if (!arquivo.is_open()) {
 		return false;
 	}
 
-	int linhas = info.endRow - info.startRow;
+	int linhas = info.linhaFim - info.linhaInicio;
 	int colunas = static_cast<int>(resultado[0].size());
 	arquivo << linhas << ' ' << colunas << '\n';
 
-	for (int row = info.startRow; row < info.endRow; ++row) {
+	for (int row = info.linhaInicio; row < info.linhaFim; ++row) {
 		for (int col = 0; col < colunas; ++col) {
-			arquivo << resultado[row][col];
-			if (col + 1 < colunas) {
-				arquivo << ' ';
-			}
+			arquivo << "c" << (row + 1) << (col + 1) << ' ' << resultado[row][col] << '\n';
 		}
-		arquivo << '\n';
 	}
 
-	arquivo << "tempo_ms " << info.elapsedMs << '\n';
+	arquivo << info.tempoS << '\n';
 	return true;
 }
 
 int main(int argc, char *argv[]) {
 	if (argc != 4) {
-		std::cerr << "Uso: " << argv[0] << " matriz_m1.txt matriz_m2.txt T\n";
+		cerr << "Passe os seguintes argumentos: matriz_m1.txt matriz_m2.txt T\n";
 		return 1;
 	}
 
-	std::string caminhoMatriz1 = argv[1];
-	std::string caminhoMatriz2 = argv[2];
+	string caminhoMatriz1 = argv[1];
+	string caminhoMatriz2 = argv[2];
 
 	int totalThreads = 0;
 	if (!validarNumeroInteiro(argv[3], totalThreads) || totalThreads <= 0) {
-		std::cerr << "Erro: T deve ser um inteiro positivo.\n";
+		cerr << "Erro: T deve ser um inteiro positivo.\n";
 		return 1;
 	}
 
 	Matrix m1;
 	Matrix m2;
 	if (!carregarArquivoMatriz(caminhoMatriz1, m1) || !carregarArquivoMatriz(caminhoMatriz2, m2)) {
-		std::cerr << "Erro: nao foi possivel ler os arquivos de matriz.\n";
+		cerr << "Erro: nao foi possivel ler os arquivos de matriz.\n";
 		return 1;
 	}
 
 	if (m1.empty() || m2.empty() || m1[0].size() != m2.size()) {
-		std::cerr << "Erro: dimensoes incompativeis para multiplicacao.\n";
+		cerr << "Erro: dimensoes incompativeis para multiplicacao.\n";
 		return 1;
 	}
 
 	int linhasResultado = static_cast<int>(m1.size());
 	if (totalThreads > linhasResultado) {
-		std::cerr << "Erro: T nao pode ser maior que o numero de linhas de M1 (N1).\n";
+		cerr << "Erro: T nao pode ser maior que o numero de linhas de M1 (N1).\n";
 		return 1;
 	}
 
-	if (linhasResultado % totalThreads != 0) {
-		std::cerr << "Erro: N1 deve ser divisivel por T para este modelo (N1/T linhas por thread).\n";
+	if (!criarDiretorioSaida(AppPaths::dirSaidaMatrizes)) {
+		cerr << "Erro: nao foi possivel criar o diretorio de saida.\n";
 		return 1;
 	}
-
-	_mkdir(AppPaths::dirSaidaMatrizes);
 
 	int colunasResultado = static_cast<int>(m2[0].size());
-	Matrix resultado(linhasResultado, std::vector<int>(colunasResultado, 0));
+	Matrix resultado(linhasResultado, vector<int>(colunasResultado, 0));
 
-	int bloco = linhasResultado / totalThreads;
-	std::vector<HANDLE> handles(totalThreads, nullptr);
-	std::vector<ThreadTask> tasks(totalThreads);
-	std::vector<ThreadResult> resultadosThreads(totalThreads);
+	int blocoBase = linhasResultado / totalThreads;
+	int resto = linhasResultado % totalThreads;
+	// criacao dos 'ids' das threads
+	vector<pthread_t> threads(totalThreads);
+	// vetor para controlar quais threads foram criadas com sucesso (para evitar join em threads não criadas)
+	vector<bool> threadCriada(totalThreads, false);
+	vector<tarefaThread> tasks(totalThreads);
+	vector<resultadoThread> resultadosThreads(totalThreads);
+	int inicioAtual = 0;
 
 	for (int i = 0; i < totalThreads; ++i) {
-		int inicio = i * bloco;
-		int fim = inicio + bloco;
+		int linhasThread = blocoBase + (i >= totalThreads - resto ? 1 : 0);
+		int inicio = inicioAtual;
+		int fim = inicio + linhasThread;
+		inicioAtual = fim;
 
-		resultadosThreads[i].threadIndex = i;
-		resultadosThreads[i].startRow = inicio;
-		resultadosThreads[i].endRow = fim;
+		resultadosThreads[i].threadId = i;
+		resultadosThreads[i].linhaInicio = inicio;
+		resultadosThreads[i].linhaFim = fim;
 
 		tasks[i].m1 = &m1;
 		tasks[i].m2 = &m2;
 		tasks[i].resultado = &resultado;
 		tasks[i].threadInfo = &resultadosThreads[i];
-		tasks[i].startRow = inicio;
-		tasks[i].endRow = fim;
+		tasks[i].linhaInicio = inicio;
+		tasks[i].linhaFim = fim;
 
-		handles[i] = CreateThread(nullptr, 0, multiplicarBlocoLinhas, &tasks[i], 0, nullptr);
-		if (handles[i] == nullptr) {
-			std::cerr << "Erro: falha ao criar thread " << (i + 1) << ".\n";
+		// endereço da thread / função de execução / parâmetro para a thread (indice do worker)
+		int status = pthread_create(&threads[i], nullptr, multiplicarBlocoLinhas, &tasks[i]);
+		if (status != 0) {
+			cerr << "Erro: falha ao criar thread " << (i + 1) << ".\n";
 			for (int j = 0; j < i; ++j) {
-				if (handles[j] != nullptr) {
-					WaitForSingleObject(handles[j], INFINITE);
-					CloseHandle(handles[j]);
+				if (threadCriada[j]) {
+					// especie de await - dizemos qual thread queremos esperar e o que fazer quando ela terminar (nullptr = não precisamos de retorno)
+					pthread_join(threads[j], nullptr);
 				}
 			}
 			return 1;
 		}
+
+		threadCriada[i] = true;
 	}
 
-	for (HANDLE h : handles) {
-		WaitForSingleObject(h, INFINITE);
-		CloseHandle(h);
+	for (int i = 0; i < totalThreads; ++i) {
+		if (threadCriada[i]) {
+			pthread_join(threads[i], nullptr);
+		}
 	}
 
-	long long tempoTotalParaleloMs = 0;
-	for (const ThreadResult &info : resultadosThreads) {
+	double tempoTotalParaleloS = 0.0;
+	for (const resultadoThread &info : resultadosThreads) {
 		if (!salvarResultadoParcial(resultado, info)) {
-			std::cerr << "Erro: nao foi possivel salvar um arquivo parcial de resultado.\n";
+			cerr << "Erro: nao foi possivel salvar um arquivo parcial de resultado.\n";
 			return 1;
 		}
 
-		if (info.elapsedMs > tempoTotalParaleloMs) {
-			tempoTotalParaleloMs = info.elapsedMs;
+		if (info.tempoS > tempoTotalParaleloS) {
+			tempoTotalParaleloS = info.tempoS;
 		}
 	}
 
-	std::cout << "Processamento paralelo com threads concluido.\n";
-	std::cout << "Arquivos parciais gerados: " << totalThreads << "\n";
-	std::cout << "Tempo total (maior entre threads): " << tempoTotalParaleloMs << " ms\n";
+	cout << fixed << setprecision(6);
+	cout << "Tempo total (maior entre threads): " << tempoTotalParaleloS << " s\n";
 
 	return 0;
 }
