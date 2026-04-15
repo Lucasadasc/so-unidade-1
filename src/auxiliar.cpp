@@ -10,7 +10,7 @@
 
 using namespace std;
 
-using Matrix = vector<vector<int>>;
+using Matriz = vector<vector<int>>;
 
 bool criarDiretorioSaida(const char *dir) {
 	int status = mkdir(dir, 0777);
@@ -33,8 +33,8 @@ bool validarNumeroInteiro(const string &text, int &value) {
 	}
 }
 
-Matrix gerarMatrizAleatoria(int rows, int cols) {
-	Matrix matrix(rows, vector<int>(cols, 0));
+Matriz gerarMatrizAleatoria(int rows, int cols) {
+	Matriz matrix(rows, vector<int>(cols, 0));
 
     // o random_device é usado para obter uma semente aleatoria do sistema
 	random_device rd;
@@ -52,7 +52,7 @@ Matrix gerarMatrizAleatoria(int rows, int cols) {
 	return matrix;
 }
 
-bool criarArquivoMatriz(const string &filePath, const Matrix &matrix) {
+bool criarArquivoMatriz(const string &filePath, const Matriz &matrix) {
     // o ofstream é usado para criar um fluxo de saida para escrever em arquivos
 	ofstream novoArquivo(filePath);
 
@@ -112,8 +112,8 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	Matrix matrix1 = gerarMatrizAleatoria(n1, m1);
-	Matrix matrix2 = gerarMatrizAleatoria(n2, m2);
+	Matriz matrix1 = gerarMatrizAleatoria(n1, m1);
+	Matriz matrix2 = gerarMatrizAleatoria(n2, m2);
 
 	if (!criarDiretorioSaida(AppPaths::dirSaida)) {
 		cerr << "Erro: nao foi possivel criar o diretorio de saida.\n";

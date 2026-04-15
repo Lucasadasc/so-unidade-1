@@ -18,7 +18,7 @@ using namespace std;
 
 using Matrix = vector<vector<int>>;
 
-struct WorkerResult {
+struct resultadoProcesso {
 	int workerIndex = 0;
 	pid_t pid = -1;
 	string outputPath;
@@ -146,7 +146,7 @@ bool executarWorkerProcesso(const Matrix &m1, const Matrix &m2, int inicio, int 
 	return salvarResultadoParcial(resultadoParcial, tempoS, caminhoSaida);
 }
 
-int executarComFork(const string &caminhoM1, const string &caminhoM2, int totalWorkers) {
+int executarComFork(const string &caminhoM1, const string &caminhoM2, int totalProcessos) {
 	Matrix m1;
 	Matrix m2;
 
@@ -161,7 +161,7 @@ int executarComFork(const string &caminhoM1, const string &caminhoM2, int totalW
 	}
 
 	int n1 = static_cast<int>(m1.size());
-	if (totalWorkers <= 0 || totalWorkers > n1) {
+	if (totalProcessos <= 0 || totalProcessos > n1) {
 		cerr << "Erro: P deve estar no intervalo [1, N1].\n";
 		return 1;
 	}
@@ -176,13 +176,13 @@ int executarComFork(const string &caminhoM1, const string &caminhoM2, int totalW
 		return 1;
 	}
 
-	int blocoBase = n1 / totalWorkers;
-	int resto = n1 % totalWorkers;
-	vector<WorkerResult> resultados(totalWorkers);
+	int blocoBase = n1 / totalProcessos;
+	int resto = n1 % totalProcessos;
+	vector<resultadoProcesso> resultados(totalProcessos);
 	int inicioAtual = 0;
 
-	for (int i = 0; i < totalWorkers; ++i) {
-		int linhasWorker = blocoBase + (i >= totalWorkers - resto ? 1 : 0);
+	for (int i = 0; i < totalProcessos; ++i) {
+		int linhasWorker = blocoBase + (i >= totalProcessos - resto ? 1 : 0);
 		int inicio = inicioAtual;
 		int fim = inicio + linhasWorker;
 		inicioAtual = fim;
@@ -210,7 +210,7 @@ int executarComFork(const string &caminhoM1, const string &caminhoM2, int totalW
 		resultados[i].pid = pid;
 	}
 
-	for (int i = 0; i < totalWorkers; ++i) {
+	for (int i = 0; i < totalProcessos; ++i) {
 		int status = 0;
 		if (wait(&status) < 0) {
 			cerr << "Erro: falha ao aguardar processo filho.\n";
@@ -224,7 +224,7 @@ int executarComFork(const string &caminhoM1, const string &caminhoM2, int totalW
 	}
 
 	double tempoTotalS = 0.0;
-	for (const WorkerResult &resultado : resultados) {
+	for (const resultadoProcesso &resultado : resultados) {
 		double tempoWorkerS = 0.0;
 		if (!lerTempoResultadoParcial(resultado.outputPath, tempoWorkerS)) {
 			cerr << "Erro: nao foi possivel ler arquivo parcial de resultado.\n";

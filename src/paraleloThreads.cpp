@@ -13,7 +13,7 @@
 
 using namespace std;
 
-using Matrix = vector<vector<int>>;
+using Matriz = vector<vector<int>>;
 
 struct resultadoThread {
 	int threadId = 0;
@@ -23,9 +23,9 @@ struct resultadoThread {
 };
 
 struct tarefaThread {
-	const Matrix *m1 = nullptr;
-	const Matrix *m2 = nullptr;
-	Matrix *resultado = nullptr;
+	const Matriz *m1 = nullptr;
+	const Matriz *m2 = nullptr;
+	Matriz *resultado = nullptr;
 	resultadoThread *threadInfo = nullptr;
 	int linhaInicio = 0;
 	int linhaFim = 0;
@@ -50,7 +50,7 @@ bool validarNumeroInteiro(const string &text, int &value) {
 	}
 }
 
-bool carregarArquivoMatriz(const string &caminhoArquivo, Matrix &matriz) {
+bool carregarArquivoMatriz(const string &caminhoArquivo, Matriz &matriz) {
 	ifstream arquivoMatriz(caminhoArquivo);
 	if (!arquivoMatriz.is_open()) {
 		return false;
@@ -75,9 +75,9 @@ bool carregarArquivoMatriz(const string &caminhoArquivo, Matrix &matriz) {
 }
 
 void executarBlocoLinhas(tarefaThread *task) {
-	const Matrix &m1 = *(task->m1);
-	const Matrix &m2 = *(task->m2);
-	Matrix &resultado = *(task->resultado);
+	const Matriz &m1 = *(task->m1);
+	const Matriz &m2 = *(task->m2);
+	Matriz &resultado = *(task->resultado);
 	resultadoThread &threadInfo = *(task->threadInfo);
 	int linhaInicio = task->linhaInicio;
 	int linhaFim = task->linhaFim;
@@ -119,7 +119,7 @@ string caminhoArquivoParte(int indiceThread) {
 	return base + sufixo;
 }
 
-bool salvarResultadoParcial(const Matrix &resultado, const resultadoThread &info) {
+bool salvarResultadoParcial(const Matriz &resultado, const resultadoThread &info) {
 	string caminho = caminhoArquivoParte(info.threadId);
 	ofstream arquivo(caminho);
 	if (!arquivo.is_open()) {
@@ -155,8 +155,8 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	Matrix m1;
-	Matrix m2;
+	Matriz m1;
+	Matriz m2;
 	if (!carregarArquivoMatriz(caminhoMatriz1, m1) || !carregarArquivoMatriz(caminhoMatriz2, m2)) {
 		cerr << "Erro: nao foi possivel ler os arquivos de matriz.\n";
 		return 1;
@@ -184,7 +184,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	int colunasResultado = static_cast<int>(m2[0].size());
-	Matrix resultado(linhasResultado, vector<int>(colunasResultado, 0));
+	Matriz resultado(linhasResultado, vector<int>(colunasResultado, 0));
 
 	int blocoBase = linhasResultado / totalThreads;
 	int resto = linhasResultado % totalThreads;
