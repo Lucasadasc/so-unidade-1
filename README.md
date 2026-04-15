@@ -31,13 +31,7 @@ Rodar processos:
 Execute a partir da raiz do projeto:
 
 ```bash
-valores=(2 4 8 16)
-
-for valor in "${valores[@]}"; do
-	echo
-	echo "=== THREADS COM VALOR: $valor ==="
 	for i in $(seq 1 10); do
 		./output/sequencial output/matrizes/matriz_m1100x100.txt output/matrizes/matriz_m2100x100.txt
 	done
-done
 ```

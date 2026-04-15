@@ -16,7 +16,7 @@
 
 using namespace std;
 
-using Matrix = vector<vector<int>>;
+using Matriz = vector<vector<int>>;
 
 struct resultadoProcesso {
 	int workerIndex = 0;
@@ -43,7 +43,7 @@ bool validarNumeroInteiro(const string &text, int &value) {
 	}
 }
 
-bool carregarArquivoMatriz(const string &caminhoArquivo, Matrix &matriz) {
+bool carregarArquivoMatriz(const string &caminhoArquivo, Matriz &matriz) {
 	ifstream arquivoMatriz(caminhoArquivo);
 	if (!arquivoMatriz.is_open()) {
 		return false;
@@ -79,7 +79,7 @@ string caminhoArquivoParte(int indiceProcesso) {
 	return base + sufixo;
 }
 
-bool salvarResultadoParcial(const Matrix &resultadoParcial, double tempoS, const string &caminhoSaida) {
+bool salvarResultadoParcial(const Matriz &resultadoParcial, double tempoS, const string &caminhoSaida) {
 	ofstream arquivo(caminhoSaida);
 	if (!arquivo.is_open()) {
 		return false;
@@ -126,9 +126,9 @@ bool lerTempoResultadoParcial(const string &caminhoArquivo, double &tempoS) {
 	return true;
 }
 
-bool executarWorkerProcesso(const Matrix &m1, const Matrix &m2, int inicio, int fim, const string &caminhoSaida) {
+bool executarWorkerProcesso(const Matriz &m1, const Matriz &m2, int inicio, int fim, const string &caminhoSaida) {
 	int colunas = static_cast<int>(m2[0].size());
-	Matrix resultadoParcial(fim - inicio, vector<int>(colunas, 0));
+	Matriz resultadoParcial(fim - inicio, vector<int>(colunas, 0));
 
 	auto start = chrono::high_resolution_clock::now();
 	for (int linha = inicio; linha < fim; ++linha) {
@@ -147,8 +147,8 @@ bool executarWorkerProcesso(const Matrix &m1, const Matrix &m2, int inicio, int 
 }
 
 int executarComFork(const string &caminhoM1, const string &caminhoM2, int totalProcessos) {
-	Matrix m1;
-	Matrix m2;
+	Matriz m1;
+	Matriz m2;
 
 	if (!carregarArquivoMatriz(caminhoM1, m1) || !carregarArquivoMatriz(caminhoM2, m2)) {
 		cerr << "Erro: nao foi possivel ler os arquivos de matriz.\n";
